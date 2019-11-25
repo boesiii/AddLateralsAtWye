@@ -21,6 +21,7 @@
  *                                                                         *
  ***************************************************************************/
 """
+
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
@@ -241,54 +242,53 @@ class AddLateralAtWye:
         ft =  QgsFeature()
         # print (point)
         ft.setGeometry(data[-1])
-        print (data)
+        # print (data)
         
         ft.setAttributes(data[0:17])
         self.provider.addFeature(ft)
         self.temp_layer.updateExtents()
         print ('created point')
     
+    def bearing_correction(self, a):
+        if 90 <= a <= 180:
+            print ('sector se')
+            a = 360 - (a - 90)
+        if 270 <= a < 360:
+            a = 360 - (a - 90)
+            print ('sector nw')
+            return a
+            
+        
+    
     def draw_line(self, w, a, c, d):
         start_pt = QgsPoint(w.geometry().asPoint())
-        print (a)
-        a = a - 90 - 360
-        print (c)
-        # if str(first) in ("a", "e", "i", "o", "u"):
-        if c in ('01:00','02:00','3:00','4:00','5:00'):
+        a = 360 - (a - 90)
+        
+        if c in ('1:00', '01:00','2:00','02:00','3:00','4:00','5:00'):
             side = 'a'
         elif c in ('7:00','8:00','9:00','10:00','11:00'):
             side = 'b'
         else:
-            side = 0
+            side = 'no side'
         
-        print (side)
-        print (d, ' ' , c)
-        d = 'Upstream MH'
-        c = 'a'
-        # print (d, ' ' , c)
         if d == 'Upstream MH' and side == 'a':
-            a = a + 90 - 360
-            print ('case 1')
-        # elif (d == 'Upstream MH' and c == 'b'):
-            # a = a - 90
+            a = a - 90
+            # print ('case 1')
+        elif (d == 'Upstream MH' and side == 'b'):
+            a = a - 270
             # print ('case 2')
-        # elif (d == 'Downstream MH' and c == 1):
-            # a = a - 90
-        # elif (d == 'Downstream MH' and c == 2):
-            # a = a + 90
+        elif (d == 'Downstream MH' and side == 'b'):
+            a = a - 90
+        elif (d == 'Downstream MH' and side == 'a'):
+            a = a - 270
         else:
+            pass
             print ('else')
             
+        
         w_geom = QgsPointXY(w.geometry().asPoint())
-                                        
-                # select pipe main
-                # rectangle = QgsRectangle(wye_geom.x() - 0.1, 
-                                # wye_geom.y() - 0.1, 
-                                # wye_geom.x() + 0.1, 
-                                # wye_geom.y() + 0.1)
-        # end_pt = 
-        length = 10
-        print (a)
+        length = 20
+        # print (a)
         # geom = feature.geometry().asPoint()
         old_x = w_geom.x()
         old_y = w_geom.y()
@@ -297,29 +297,33 @@ class AddLateralAtWye:
         endy = length * math.sin(math.radians(a))
         new_x = old_x + endx
         new_y = old_y + endy
-        # print (new_x)
-        # print (new_y)
         end_pt = QgsPoint(new_x, new_y)
-        print (start_pt)
-        print (end_pt)
-            
         
+                
         ft =  QgsFeature()
-        # print (point)
-        ft.setGeometry(QgsGeometry.fromPolyline([start_pt, end_pt]))
-        # print (data)
-        
+        if side == 'a' or side == 'b':
+            ft.setGeometry(QgsGeometry.fromPolyline([start_pt, end_pt]))
+        else:
+            # draw circle
+            segments = 20
+            radius = 5
+            pts = []
+            for i in range(segments):
+                print (i)
+                theta = i * (2.0 * math.pi / segments)
+                p = QgsPoint(start_pt.x() + radius * math.cos(theta),
+                             start_pt.y() + radius * math.sin(theta))
+                pts.append(p)
+            
+            print (pts)
+            # ft.setGeometry(QgsGeometry.fromPolyline([pts[0], pts[15]]))
+            ft.setGeometry(QgsGeometry.fromPolyline(pts))
+            
         # ft.setAttribute('PIPE_ID', 'TEST')
         self.provider.addFeature(ft)
         self.temp_layer.updateExtents()
-        print ('created point')
+        # print ('created point')
             
-            
-            
-        
-        
-        
-        
     
     def run(self):
         """Run method that performs all the real work"""
@@ -377,13 +381,16 @@ class AddLateralAtWye:
                 for main in selected_mains:
                     # adjust angle from north
                     angle = self.line_angle(main)
-                    print (angle)
+                    # print (angle)
                     
                 clock = wye['CLOCK']
+                # direction = wye['MH_REF']
                 direction = wye['DIRECTION']
                 self.draw_line(wye, angle, clock, direction)
                 # print (clock)
                 # print(feature['name'])
+            
+        self.main_lyr.removeSelection()
                     
                     
             
